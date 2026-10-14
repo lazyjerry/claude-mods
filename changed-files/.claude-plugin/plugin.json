@@ -1,0 +1,6 @@
+{
+  "name": "changed-files",
+  "version": "0.1.0",
+  "description": "A pane pinned near the prompt listing the files each turn changed, with added and deleted line counts; collapsible, one per session.",
+  "types": "./types/index.d.ts"
+}
