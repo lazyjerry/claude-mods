@@ -1,5 +1,9 @@
 # claude-mods
 
+> 作者：[LazyJerry](https://github.com/lazyjerry/claude-mods)
+>
+> 最後更新：2026-10-14
+
 Claude Code mod（以 plugin 形式載入的 hook 模組）收藏。每個子資料夾是一個獨立的 mod。
 
 | Mod | 用途 |
@@ -22,6 +26,20 @@ VS Code 的結論來自實測（Output → Claude VSCode 的 log 顯示 mod 已�
 ### 安裝
 
 前置條件：已安裝 Claude Code，且 `claude` 指令可用。
+
+**一行指令：遠端下載並安裝（建議）**
+
+不用先 clone，下載 repo 壓縮檔到暫存目錄後執行 [install.sh](install.sh)，裝完刪掉暫存目錄（需要 `curl`、`tar`、`jq`）：
+
+```bash
+tmp="$(mktemp -d)" && curl -fsSL https://github.com/lazyjerry/claude-mods/archive/refs/heads/main.tar.gz | tar -xz -C "$tmp" && bash "$tmp/claude-mods-main/install.sh" && rm -rf "$tmp"
+```
+
+不加參數會出現互動選單；要跳過選單，在 `install.sh` 後面加 `--all` 或 mod 名稱（例如 `changed-files`）。結果與方式三相同：mod 複製到 `~/.claude/mods`，路徑補進 `~/.claude/settings.json`。
+
+不支援 `curl …/install.sh | bash`：腳本從自己所在的資料夾偵測 mod，只下載腳本本身會找不到任何 mod。
+
+以下三種方式適合要自己保留原始碼、或要改 mod 的情況。
 
 **方式一：啟動時指定資料夾（單次，適合試用）**
 
