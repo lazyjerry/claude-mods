@@ -20,11 +20,11 @@ const TITLE = '變更檔案'
 const KEEP_TURNS = 30
 const PROMPT_CHARS = 48
 const MAX_ROWS = 16
-const CARD_ROWS = 3
 
 const turns = atom({ plugin: 'changed-files', key: 'turns' } as const, [])
 const current = atom({ plugin: 'changed-files', key: 'current' } as const, null)
 const isExpanded = atom({ plugin: 'changed-files', key: 'isExpanded' } as const, true)
+const hasAutoOpened = atom({ plugin: 'changed-files', key: 'hasAutoOpened' } as const, false)
 
 type Engine = EngineInterface
 
@@ -76,9 +76,17 @@ const record = async ($: Engine, path: string, counts: Counts): Promise<void> =>
     return [...list, { id, prompt, files: [file] }].slice(-KEEP_TURNS)
   })
   $.ui.status(await summary($))
+  await openOnFirstChange($)
 }
 
-/** 沒有 Pane／AbovePrompt 位置的 surface（如 VS Code）改看狀態列與指令輸出的文字版。 */
+/** 面板只在 session 第一次記到變更時自動開；之後由 /changed-files 開，關掉就不再自動冒出來。 */
+const openOnFirstChange = async ($: Engine): Promise<void> => {
+  if (await read($, hasAutoOpened)) return
+  await update($, hasAutoOpened, () => true)
+  await $.ui.open({ id: PANE, title: TITLE, rows: MAX_ROWS }).catch(() => undefined)
+}
+
+/** 沒有畫面板的 surface（如 VS Code 未開放面板時）改看狀態列與指令輸出的文字版。 */
 const summary = async ($: Engine): Promise<string | undefined> => {
   const files = (await read($, turns)).flatMap(turn => turn.files)
   if (files.length === 0) return undefined
@@ -108,7 +116,6 @@ export const register: Register = on => {
       name: 'changed-files',
       description: '打開本 session 的變更檔案面板（每輪的檔案與增刪行數）',
     })
-    void $.ui.open({ id: PANE, title: TITLE, rows: MAX_ROWS }).catch(() => undefined)
 
     return next(e)
   })
@@ -217,7 +224,6 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" width={width}>
         <Box flexDirection="row" gap={1}>
-          <Text bold>{TITLE}</Text>
           <Text>
             {paths} 檔 +{total.added} −{total.deleted}
             {total.isApprox ? ' ~' : ''}
@@ -250,37 +256,6 @@ export const register: Register = on => {
               ))}
             </Box>
           ))}
-      </Box>
-    )
-  })
-
-  // 輸入框上方的狀態卡片：沒有 Pane 位置的 surface（如 VS Code）也能看到本 session 的變更
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const list = await read($, turns)
-    const allFiles = list.flatMap(turn => turn.files)
-    if (allFiles.length === 0) return next(e)
-
-    const { Box, Text } = $.ui.resolve(e)
-    const total = sumFiles(allFiles)
-    const paths = new Set(allFiles.map(file => file.path)).size
-    const latest = list[list.length - 1]?.files.slice(-CARD_ROWS) ?? []
-
-    return (
-      <Box flexDirection="column">
-        <Box flexDirection="row" gap={1}>
-          <Text bold>{TITLE}</Text>
-          <Text>{paths} 檔</Text>
-          <Text color="green">+{total.added}</Text>
-          <Text color="red">−{total.deleted}</Text>
-          {total.isApprox && <Text dimColor>~</Text>}
-        </Box>
-        {latest.map(file => (
-          <Box flexDirection="row" gap={1}>
-            <Text color="green">{`+${file.added}`.padStart(5)}</Text>
-            <Text color="red">{`−${file.deleted}`.padStart(5)}</Text>
-            <Text wrap="truncate-start">{file.path}</Text>
-          </Box>
-        ))}
       </Box>
     )
   })

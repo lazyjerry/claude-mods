@@ -2,7 +2,7 @@
 
 > 作者：[LazyJerry](https://github.com/lazyjerry/claude-mods)
 >
-> 最後更新：2026-10-14
+> 最後更新：2026-10-15
 
 Claude Code mod（以 plugin 形式載入的 hook 模組）收藏。每個子資料夾是一個獨立的 mod。
 
@@ -12,16 +12,19 @@ Claude Code mod（以 plugin 形式載入的 hook 模組）收藏。每個子資
 
 ## changed-files
 
-追蹤 Edit、Write、NotebookEdit 與 Bash 造成的檔案變更，依輪次整理成清單，並累計 `+新增 −刪除` 行數。Bash 的變更用執行前後的 `git diff --numstat` 與未追蹤檔案比對，所以需要在 git repo 內才能計到 Bash 造成的變更。
+追蹤 Edit、Write、NotebookEdit 與 Bash 造成的檔案變更，依輪次整理成清單，並累計 `+新增 −刪除` 行數。Bash 的變更用執行前後的 `git diff --numstat` 與未追蹤檔案比對，所以需要在 git repo 內才能計到 Bash 造成的變更；比對的 repo 以 session 開始時的工作目錄解析一次，之後 `cd` 到別的 repo 不會跟著換。
+
+面板在 session 第一次記到變更時才自動打開，沒改檔的 session 不會出現；關掉後要再看就輸入 `/changed-files`。
 
 ### 各環境的顯示結果
 
 | 環境 | 顯示方式 |
 |---|---|
-| 終端機（fullscreen） | 輸入框旁的「變更檔案」面板（`x` 收合／展開），輸入框上方的卡片，每輪結束追加一行摘要 |
-| VS Code 擴充套件 | 只有 `/changed-files` 的文字輸出可用；面板、卡片、狀態列、對話摘要與 toast 實測都不會顯示 |
+| 終端機（fullscreen） | 輸入框旁的「變更檔案」面板（`x` 收合／展開），每輪結束追加一行摘要 |
+| VS Code 擴充套件 2.1.299 以上 | 輸入框上方的「變更檔案」面板（外框與標題列由擴充套件繪製，mod 無法隱藏），加上 `/changed-files` 的文字輸出 |
+| VS Code 擴充套件 2.1.296 以下 | 只有 `/changed-files` 的文字輸出；面板、狀態列、對話摘要與 toast 都不會顯示 |
 
-VS Code 的結論來自實測（Output → Claude VSCode 的 log 顯示 mod 已載入、hook 有執行，但畫面沒有對應位置），不是官方文件的說明。擴充套件日後支援後可能改變。
+VS Code 的版本分界來自實測：2.1.296 的擴充套件 bundle 沒有 Pane／AbovePrompt 的渲染程式，2.1.299 才有。兩個人裝同一份 mod、一個有面板一個只有文字，先比擴充套件版本。
 
 ### 安裝
 
@@ -85,7 +88,7 @@ bash install.sh --list           # 只列出可安裝的 mod
 
 1. 新開一個 Claude Code 對話或重啟 session。mod 只在 session 開始時載入，已開著的對話不會套用。
 2. 輸入 `/changed-files`。看到「變更檔案面板已打開。」代表指令已註冊；輸入框打到 `/changed-files` 卻顯示 `No matching commands`，代表 mod 還沒載入。
-3. 請 Claude 改任一檔案，終端機看面板，VS Code 再輸入一次 `/changed-files` 看清單。
+3. 請 Claude 改任一檔案，面板會在第一次變更時自動打開；舊版 VS Code 擴充套件沒有面板，再輸入一次 `/changed-files` 看清單。
 
 ### 驗證
 
@@ -101,9 +104,11 @@ claude plugin test /path/to/claude-mods/changed-files
 | 現象 | 處理 |
 |---|---|
 | 輸入框顯示 `No matching commands` | 確認 `CLAUDE_CODE_PLUGIN_DIRS` 路徑存在，並**新開**對話 |
-| VS Code 沒有面板或卡片 | 預期行為，改用 `/changed-files` |
+| VS Code 沒有面板 | 擴充套件 2.1.296 以下沒有這個顯示位置，更新到 2.1.299 以上並新開對話；或改用 `/changed-files` |
+| VS Code 版本夠新仍沒有面板，log 有 `session.start: raised (surface none, not interactive)` 與 `ui.open: no-surface` | 兩個可能，依序查：(1) `claudeCode.useTerminal` 為 true，Claude 跑在終端機裡沒有 webview，使用者層級與工作區檔（`.code-workspace`）兩處都要拿掉；(2) 帳號層級的伺服器端 feature flag 未開，`jq '.cachedGrowthBookFeatures.tengu_melodic_ember' ~/.claude.json` 為 `false` 時內建 binary 不宣告 `ui_surface_v1`，webview 不會 attach。第 (2) 種本機沒有正規方式打開，只能用 `/changed-files` 文字輸出或終端機版 |
+| 面板一直沒出現 | 面板在第一次記到變更時才開；還沒改檔或變更不在判定範圍內（見「Bash 的變更沒計入」）就不會開 |
 | 想確認 VS Code 有沒有載入 | 命令面板執行 `Claude: Show Logs`，Output 選「Claude VSCode」，篩選 `changed-files`，應看到 `plugin.register: changed-files ... admitted` |
-| Bash 的變更沒計入 | 確認目前目錄在 git repo 內 |
+| Bash 的變更沒計入 | 確認 session 開始時的工作目錄在 git repo 內，且改到的檔案在同一個 repo；用 Bash 改其他 repo 或非 repo 的檔案不會計入 |
 
 ### 解除安裝
 

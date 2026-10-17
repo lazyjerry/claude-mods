@@ -64,6 +64,7 @@ test('an Edit of the turn lands in the pane with its counts, and the pane collap
   for (const surface of ['terminal', 'vscode'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: '1 檔 +2 −1' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '變更檔案' })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /改 a\.ts/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /a\.ts$/ })).toBeDefined()
     await ui.unmount()
@@ -76,4 +77,39 @@ test('an Edit of the turn lands in the pane with its counts, and the pane collap
   await ui.press({ key: 'toggle' })
   expect(await ui.find({ type: 'Text', text: /改 a\.ts/ })).toBeDefined()
   await ui.unmount()
+})
+
+// 輸入框上方的 band 不再由本 mod 繪製：Pane 已在每個會畫東西的 surface 出現，band 只會重複一份且沒有收合鈕
+test('the AbovePrompt band is left to the engine after a change', async ($, on) => {
+  on('tool.call', { tool: 'Edit' }, () => ({ result: EDIT_RESULT }))
+  on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+  on('session.root', () => ({ value: '/repo' }))
+  // 代表引擎自己的 band：mod 沒接手時，mount 到的就是這一棵
+  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return h(Text, null, 'engine band')
+  })
+
+  await $.turn.start({ text: '改 a.ts', turnId: 'turn-1' })
+  await $.tool.call({ tool: 'Edit', file_path: '/repo/a.ts', old_string: 'x', new_string: 'y\nz' })
+
+  for (const surface of ['terminal', 'vscode'] as const) {
+    const ui = await $.ui.mount({
+      plugin: 'changed-files',
+      surface,
+      component: 'AbovePrompt',
+      props: {
+        hasSurvey: false,
+        isWorking: false,
+        maxRows: 10,
+        bodyColumns: 80,
+        scroll: { offset: 0, bodyRows: 9 },
+        view: {},
+      },
+    })
+    expect(await ui.find({ type: 'Text', text: 'engine band' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '變更檔案' })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /a\.ts$/ })).toBeUndefined()
+    await ui.unmount()
+  }
 })

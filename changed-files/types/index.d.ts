@@ -20,6 +20,8 @@ declare module 'claude-code' {
       turns: ChangedTurn[]
       current: CurrentTurn | null
       isExpanded: boolean
+      /** True once the pane auto-opened for this session's first change. */
+      hasAutoOpened: boolean
     }
   }
 }
